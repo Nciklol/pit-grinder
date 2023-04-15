@@ -6,7 +6,7 @@ public class APIMainPayload {
     private  String api_key;
     private String player_name;
     private String uuid;
-    private APIVec3 pos;
+    private APIVec3 position;
     private double pitch;
     private double yaw;
     private List<APIInventoryItem> inventory;
@@ -14,7 +14,7 @@ public class APIMainPayload {
     private String middle_block;
     private List<String> last_messages;
     private List<APIContainerItem> container;
-    private List<APIVec3> dropped_items;
+    private List<APIDroppedItem> dropped_items;
     private String important_chat_msg;
     private String current_open_gui;
     private List<APIVec3>  villager_positions;
@@ -46,12 +46,12 @@ public class APIMainPayload {
         this.uuid = uuid;
     }
 
-    public APIVec3 getPos() {
-        return pos;
+    public APIVec3 getPosition() {
+        return position;
     }
 
-    public void setPos(APIVec3 pos) {
-        this.pos = pos;
+    public void setPosition(APIVec3 pos) {
+        this.position = pos;
     }
 
     public double getPitch() {
@@ -110,11 +110,11 @@ public class APIMainPayload {
         this.container = container;
     }
 
-    public List<APIVec3> getDroppedItems() {
+    public List<APIDroppedItem> getDroppedItems() {
         return dropped_items;
     }
 
-    public void setDroppedItems(List<APIVec3> dropped_items) {
+    public void setDroppedItems(List<APIDroppedItem> dropped_items) {
         this.dropped_items = dropped_items;
     }
 

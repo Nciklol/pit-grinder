@@ -4,6 +4,13 @@ public class APIInventoryItem {
     private String item;
     private int stack;
 
+    public APIInventoryItem() {};
+    public APIInventoryItem(String _itemName, int _stack) {
+        item = _itemName;
+        stack = _stack;
+    }
+
+
     public String getItem() {
         return item;
     }

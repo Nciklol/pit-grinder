@@ -65,6 +65,6 @@ type = "microsoft"
 *(found from [here](https://github.com/DJtheRedstoner/DevAuth#config-file-format))*
 
 Now you just have to launch the Minecraft Client task in IntelliJ. As the game starts up you'll get prompted with an OAuth link. After signing in it will automatically sign you in with it!
-
+  
 
 Feel free to suggest improvements.

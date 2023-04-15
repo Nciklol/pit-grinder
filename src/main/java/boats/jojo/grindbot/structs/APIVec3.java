@@ -5,6 +5,13 @@ public class APIVec3 {
     private double y;
     private double z;
 
+    public APIVec3() {}
+    public APIVec3(double _x, double _y, double _z) {
+        x = _x;
+        y = _y;
+        z = _z;
+    }
+
     public double getX() {
         return x;
     }

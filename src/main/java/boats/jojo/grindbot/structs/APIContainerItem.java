@@ -2,7 +2,7 @@ package boats.jojo.grindbot.structs;
 
 public class APIContainerItem {
     private String item;
-    private String display_item;
+    private String display_name;
     private int stack_size;
 
     public String getItem() {
@@ -13,12 +13,12 @@ public class APIContainerItem {
         this.item = item;
     }
 
-    public String getDisplayItem() {
-        return display_item;
+    public String getDisplayName() {
+        return display_name;
     }
 
-    public void setDisplayItem(String display_item) {
-        this.display_item = display_item;
+    public void setDisplayName(String display_item) {
+        this.display_name = display_item;
     }
 
     public int getStackSize() {
