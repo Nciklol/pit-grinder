@@ -11,6 +11,7 @@ import java.util.zip.Inflater;
 import java.io.ByteArrayOutputStream;
 
 import boats.jojo.grindbot.structs.*;
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraftforge.client.ClientCommandHandler;
@@ -151,6 +152,8 @@ public class GrindBot
 
 	double mouseVelX, mouseVelY;
 	long lastMouseUpdate;
+
+	Gson gson = new GsonBuilder().serializeNulls().create();
 
 	@SubscribeEvent
 	public void onKeyPress(InputEvent.KeyInputEvent event) {
@@ -600,7 +603,7 @@ public class GrindBot
 		
 		// done, set client info header
 
-		String infoStr = new GsonBuilder().serializeNulls().create().toJson(payload);
+		String infoStr = gson.toJson(payload);
 
 		makeLog(infoStr);
 		
@@ -625,9 +628,11 @@ public class GrindBot
 			post.setConfig(requestConfig);
 
 			String apiResponse;
+			int statusCode;
 			try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
 				post.setEntity(new StringEntity(infoStr));
 				HttpResponse response = httpclient.execute(post);
+				statusCode = response.getStatusLine().getStatusCode();
 				apiResponse = IOUtils.toString(response.getEntity().getContent());
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -646,7 +651,7 @@ public class GrindBot
 			}
 
 			try {
-				ingestApiResponse(apiResponse);
+				ingestApiResponse(apiResponse, statusCode);
 			} catch (Exception exception) {
 				exception.printStackTrace();
 				apiMessage = "errored on ingesting api response";
@@ -654,170 +659,18 @@ public class GrindBot
 		});
 	}
 	
-	public void ingestApiResponse(String apiText) {
-
-		// check if the apiText starts with the compression flag
-
-		if (!apiText.startsWith("xyzcompressed")) {
-			String errorStr = "api response - " + apiText;
-			makeLog(errorStr);
-			apiMessage = errorStr;
+	public void ingestApiResponse(String apiText, int statusCode) {
+		// check if it's an error
+		if (statusCode >= 400) {
+			// parse the error and display it
+			apiMessage = "Error: " + gson.fromJson(apiText, APIError.class).getError();
 			return;
 		}
 
-		// remove the compression flag from the apiText before decompression
+		// Parse the response payload
+		APIResponsePayload payload = gson.fromJson(apiText, APIResponsePayload.class);
 
-		apiText = apiText.substring("xyzcompressed".length());
-
-		// now decompress
-
-		apiText = decompressString(apiText);
-
-		// deal with given instructions
-
-		String[] apiStringSplit = apiText.split("##!##");
-		
-		if (!apiStringSplit[0].equals("null")) {
-			nextTargetNames = apiStringSplit[0].split(":::");
-			curTargetName = nextTargetNames[0];
-			nextTargetNames = Arrays.copyOfRange(nextTargetNames, 1, nextTargetNames.length);
-		}
-		else {
-			curTargetName = "null";
-			nextTargetNames = null;
-		}
-		
-		if (!apiStringSplit[1].equals("null")) {
-			String chatToSend = apiStringSplit[1];
-			if (!chatToSend.contains("/trade")) { // lol
-				mcInstance.thePlayer.sendChatMessage(apiStringSplit[1]);
-			}
-		}
-		
-		if (!apiStringSplit[2].equals("null")) {
-			mcInstance.thePlayer.inventory.currentItem = Integer.parseInt(apiStringSplit[2]);
-		}
-		
-		if (!apiStringSplit[3].equals("null")) {
-			String[] keyChancesStringSplit = apiStringSplit[3].split(":::");
-			
-			if (keyChancesStringSplit.length != 15) {
-				makeLog("key chances string split wrong length");
-				apiMessage = "api key chances failed";
-				return;
-			}
-			
-			keyChanceForwardDown = Double.parseDouble(keyChancesStringSplit[0]);
-			keyChanceForwardUp = Double.parseDouble(keyChancesStringSplit[1]);
-			
-			keyChanceSideDown = Double.parseDouble(keyChancesStringSplit[2]);
-			keyChanceSideUp = Double.parseDouble(keyChancesStringSplit[3]);
-			
-			keyChanceBackwardDown = Double.parseDouble(keyChancesStringSplit[4]);
-			keyChanceBackwardUp = Double.parseDouble(keyChancesStringSplit[5]);
-			
-			keyChanceJumpDown = Double.parseDouble(keyChancesStringSplit[6]);
-			keyChanceJumpUp = Double.parseDouble(keyChancesStringSplit[7]);
-			
-			keyChanceCrouchDown = Double.parseDouble(keyChancesStringSplit[8]);
-			keyChanceCrouchUp = Double.parseDouble(keyChancesStringSplit[9]);
-			
-			keyChanceSprintDown = Double.parseDouble(keyChancesStringSplit[10]);
-			keyChanceSprintUp = Double.parseDouble(keyChancesStringSplit[11]);
-			
-			keyChanceUseDown = Double.parseDouble(keyChancesStringSplit[12]);
-			keyChanceUseUp = Double.parseDouble(keyChancesStringSplit[13]);
-			
-			keyAttackChance = Double.parseDouble(keyChancesStringSplit[14]);
-		}
-		
-		mouseTargetX = 0;
-		mouseTargetY = 0;
-		mouseTargetZ = 0;
-		if (!apiStringSplit[4].equals("null")) {
-			String[] mouseTargetStringSplit = apiStringSplit[4].split(":::");
-			
-			mouseTargetX = Double.parseDouble(mouseTargetStringSplit[0]);
-			mouseTargetY = Double.parseDouble(mouseTargetStringSplit[1]);
-			mouseTargetZ = Double.parseDouble(mouseTargetStringSplit[2]);
-		}
-		
-		if (!apiStringSplit[5].equals("null")) {
-			allKeysUp();
-			
-			int containerItemToPress = Integer.parseInt(apiStringSplit[5]);
-			
-			makeLog("pressing container item " + containerItemToPress);
-			
-			mcInstance.playerController.windowClick(mcInstance.thePlayer.openContainer.windowId, containerItemToPress, 1, 2, mcInstance.thePlayer);
-		}
-		
-		if (!apiStringSplit[6].equals("null")) {
-			allKeysUp();
-			
-			int inventoryItemToDrop = Integer.parseInt(apiStringSplit[6]);
-			
-			makeLog("dropping inventory item " + inventoryItemToDrop);
-			
-			mcInstance.playerController.windowClick(mcInstance.thePlayer.openContainer.windowId, inventoryItemToDrop, 1, 4, mcInstance.thePlayer);
-		}
-		
-		if (!apiStringSplit[7].equals("null")) {
-			allKeysUp();
-			
-			int inventoryItemToMove = Integer.parseInt(apiStringSplit[7]);
-			
-			makeLog("moving inventory item " + inventoryItemToMove);
-			
-			mcInstance.playerController.windowClick(mcInstance.thePlayer.openContainer.windowId, inventoryItemToMove, 1, 1, mcInstance.thePlayer);
-		}
-		
-		if (!apiStringSplit[8].equals("null")) {
-			ticksPerApiCall = Integer.parseInt(apiStringSplit[8]);
-		}
-		
-		if (!apiStringSplit[9].equals("null")) {
-			minimumFps = Integer.parseInt(apiStringSplit[9]);
-		}
-		
-		if (!apiStringSplit[10].equals("null")) {
-			fovWhenGrinding = Float.parseFloat(apiStringSplit[10]);
-		}
-		
-		if (!apiStringSplit[11].equals("null")) {
-			allKeysUp();
-			
-			if (apiStringSplit[11].equals("true")) {
-				mcInstance.currentScreen = null;
-			}
-		}
-		
-		if (!apiStringSplit[12].equals("null")) {
-			allKeysUp();
-			
-			if (apiStringSplit[12].equals("true")) {
-				pressInventoryKeyIfNoGuiOpen();
-			}
-		}
-		
-		if (!apiStringSplit[13].equals("null")) {
-			apiMessage = apiStringSplit[13];
-		}
-		
-		if (!apiStringSplit[14].equals("null")) {
-			curSpawnLevel = Double.parseDouble(apiStringSplit[14]);
-		}
-
-		if (apiStringSplit.length >= 16) { // can be removed when everyone has updated
-			if (!apiStringSplit[15].equals("null")) {
-				mouseSpeed = Double.parseDouble(apiStringSplit[15]);
-			}
-		}
-		
-		lastReceivedApiResponse = System.currentTimeMillis();
-		apiLastTotalProcessingTime = (int) (System.currentTimeMillis() - preApiProcessingTime);
-		
-		makeLog("total processing time was " + apiLastTotalProcessingTime + "ms");
+		apiMessage = payload.getMessage();
 	}
 	
 	public void doMovementKeys() { // so long
