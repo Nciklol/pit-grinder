@@ -506,8 +506,6 @@ public class GrindBot {
 
 		// container items
 
-		StringBuilder containerStr = new StringBuilder("null");
-
 		List<ItemStack> containerItems = mcInstance.thePlayer.openContainer.getInventory();
 
 		if (containerItems.size() > 46) { // check if a container is open (definitely a better way to do that)
@@ -561,7 +559,6 @@ public class GrindBot {
 
 		// current open gui
 
-		String curOpenGui = "null";
 		if (mcInstance.currentScreen != null) {
 			payload.setCurrentOpenGui(mcInstance.currentScreen.getClass().toString());
 
@@ -597,7 +594,6 @@ public class GrindBot {
 
 		// mod version
 
-		String modVersion = null;
 		ModContainer modContainer = Loader.instance().getIndexedModList().get("keystrokesmod");
 		if (modContainer != null) {
 			payload.setVersion(modContainer.toString());
