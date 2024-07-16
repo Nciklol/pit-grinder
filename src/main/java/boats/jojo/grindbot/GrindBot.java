@@ -53,101 +53,95 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
 
-@Mod(
-		modid = "keystrokesmod",
-		name = "gb",
-		version = "1.13",
-		acceptedMinecraftVersions = "1.8.9"
-)
-public class GrindBot
-{
+@Mod(modid = "keystrokesmod", name = "gb", version = "1.13", acceptedMinecraftVersions = "1.8.9")
+public class GrindBot {
 	@EventHandler
 	public void init(FMLInitializationEvent event) {
 		MinecraftForge.EVENT_BUS.register(this);
 		ClientCommandHandler.instance.registerCommand(new KeyCommand());
 	}
+
 	@EventHandler
 	public void serverLoad(FMLServerStartingEvent event) {
 		event.registerServerCommand(new KeyCommand());
 	}
 
-
 	static Base64.Encoder base64encoder = Base64.getEncoder();
 	static Base64.Decoder base64decoder = Base64.getDecoder();
-	
+
 	Minecraft mcInstance = Minecraft.getMinecraft();
-	
+
 	String apiUrl = "http://127.0.0.1:8080/grinder";
-	//String apiUrl = "http://127.0.0.1:5000/api/grinder"; // testing url
+	// String apiUrl = "http://127.0.0.1:5000/api/grinder"; // testing url
 
 	boolean loggingEnabled = true;
-	
+
 	float curFps = 0;
-	
+
 	double mouseTargetX = 0;
 	double mouseTargetY = 0;
 	double mouseTargetZ = 0;
-	
+
 	boolean attackedThisTick = false;
-	
+
 	String curTargetName = "null";
 	String[] nextTargetNames = null;
-	
+
 	static String apiKey = "null";
-	
+
 	int minimumFps = 0;
-	
+
 	int ticksPerApiCall = 200;
-	
+
 	float initialFov = 120;
 	float fovWhenGrinding = 120;
-	
+
 	double curSpawnLevel = 999;
-	
+
 	long lastCalledApi = 0;
 	long lastReceivedApiResponse = 0;
 
 	int apiLastPing = 0;
 	int apiLastTotalProcessingTime = 0;
-	
+
 	long lastTickTime = 0;
-	
+
 	List<String> chatMsgs = new ArrayList<>();
 	String importantChatMsg = "";
-	
+
 	double keyChanceForwardDown = 0; // make good
 	double keyChanceForwardUp = 0;
-	
+
 	double keyChanceSideDown = 0;
 	double keyChanceSideUp = 0;
-	
+
 	double keyChanceBackwardDown = 0;
 	double keyChanceBackwardUp = 0;
-	
+
 	double keyChanceJumpDown = 0;
 	double keyChanceJumpUp = 0;
-	
+
 	double keyChanceCrouchDown = 0;
 	double keyChanceCrouchUp = 0;
-	
+
 	double keyChanceSprintDown = 0;
 	double keyChanceSprintUp = 0;
-	
+
 	double keyChanceUseDown = 0;
 	double keyChanceUseUp = 0;
-	
+
 	double keyAttackChance = 0;
 
 	double mouseSpeed = 0;
-	
+
 	boolean autoClickerEnabled = false;
 	long lastToggledAutoClicker = 0;
 
 	boolean grinderEnabled = false;
 	long lastToggledGrinder = 0;
-	
+
 	long preApiProcessingTime = 0;
-	
+
 	String apiMessage = "null";
 
 	double mouseVelX, mouseVelY;
@@ -158,33 +152,32 @@ public class GrindBot
 	@SubscribeEvent
 	public void onKeyPress(InputEvent.KeyInputEvent event) {
 		long curTime = System.currentTimeMillis();
-		
+
 		long toggledGrinderTimeDiff = curTime - lastToggledGrinder;
-		
+
 		if (toggledGrinderTimeDiff > 500 && org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_J)) {
 			grinderEnabled = !grinderEnabled;
-			
+
 			if (grinderEnabled) { // newly enabled
 				initialFov = mcInstance.gameSettings.fovSetting;
 				chatMsgs.clear(); // reset list of chat messages to avoid picking up ones received earlier
-			}
-			else { // newly disabled
+			} else { // newly disabled
 				allKeysUp();
 				mcInstance.gameSettings.fovSetting = initialFov;
 			}
-			
+
 			lastToggledGrinder = curTime;
 		}
-		
+
 		long toggledAutoClickerTimeDiff = curTime - lastToggledAutoClicker;
-		
+
 		if (toggledAutoClickerTimeDiff > 500 && org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_K)) {
 			autoClickerEnabled = !autoClickerEnabled;
-			
+
 			lastToggledAutoClicker = curTime;
 		}
 	}
-	
+
 	@SubscribeEvent
 	public void overlayFunc(RenderGameOverlayEvent.Post event) {
 		long curTime = System.currentTimeMillis();
@@ -202,17 +195,17 @@ public class GrindBot
 			int screenHeight = event.resolution.getScaledHeight();
 
 			String[][] infoToDraw = {
-				{"Username", mcInstance.thePlayer.getName()},
-				{"FPS", Integer.toString((int) curFps)},
-				{"API time", apiLastTotalProcessingTime + "ms"},
-				{"AutoClicker", autoClickerEnabled ? "ENABLED" : "disabled"},
-				{"X", Double.toString(Math.round(mcInstance.thePlayer.posX * 10.0) / 10.0)},
-				{"Y", Double.toString(Math.round(mcInstance.thePlayer.posY * 10.0) / 10.0)},
-				{"Z", Double.toString(Math.round(mcInstance.thePlayer.posZ * 10.0) / 10.0)},
-				{"API msg", apiMessage},
+					{ "Username", mcInstance.thePlayer.getName() },
+					{ "FPS", Integer.toString((int) curFps) },
+					{ "API time", apiLastTotalProcessingTime + "ms" },
+					{ "AutoClicker", autoClickerEnabled ? "ENABLED" : "disabled" },
+					{ "X", Double.toString(Math.round(mcInstance.thePlayer.posX * 10.0) / 10.0) },
+					{ "Y", Double.toString(Math.round(mcInstance.thePlayer.posY * 10.0) / 10.0) },
+					{ "Z", Double.toString(Math.round(mcInstance.thePlayer.posZ * 10.0) / 10.0) },
+					{ "API msg", apiMessage },
 			};
 
-			for(int i = 0; i < infoToDraw.length; i++) {
+			for (int i = 0; i < infoToDraw.length; i++) {
 				String[] curInfo = infoToDraw[i];
 
 				drawText(curInfo[0] + ": " + curInfo[1], 4, 4 + i * 10);
@@ -221,65 +214,65 @@ public class GrindBot
 			int drawKeyboardPositionX = screenWidth - 77;
 			int drawKeyboardPositionY = screenHeight - 60;
 
-			if(mcInstance.gameSettings.keyBindForward.isKeyDown()) { // W
+			if (mcInstance.gameSettings.keyBindForward.isKeyDown()) { // W
 				drawText("W", drawKeyboardPositionX + 41, drawKeyboardPositionY + 4);
 			}
 
-			if(mcInstance.gameSettings.keyBindBack.isKeyDown()) { // S
+			if (mcInstance.gameSettings.keyBindBack.isKeyDown()) { // S
 				drawText("S", drawKeyboardPositionX + 41, drawKeyboardPositionY + 22);
 			}
 
-			if(mcInstance.gameSettings.keyBindLeft.isKeyDown()) { // A
+			if (mcInstance.gameSettings.keyBindLeft.isKeyDown()) { // A
 				drawText("A", drawKeyboardPositionX + 23, drawKeyboardPositionY + 22);
 			}
 
-			if(mcInstance.gameSettings.keyBindRight.isKeyDown()) { // D
+			if (mcInstance.gameSettings.keyBindRight.isKeyDown()) { // D
 				drawText("D", drawKeyboardPositionX + 59, drawKeyboardPositionY + 22);
 			}
 
-			if(mcInstance.gameSettings.keyBindSneak.isKeyDown()) { // Shift
+			if (mcInstance.gameSettings.keyBindSneak.isKeyDown()) { // Shift
 				drawText("Sh", drawKeyboardPositionX + 2, drawKeyboardPositionY + 22);
 			}
 
-			if(mcInstance.gameSettings.keyBindSprint.isKeyDown()) { // Ctrl
+			if (mcInstance.gameSettings.keyBindSprint.isKeyDown()) { // Ctrl
 				drawText("Ct", drawKeyboardPositionX + 3, drawKeyboardPositionY + 40);
 			}
 
-			if(mcInstance.gameSettings.keyBindJump.isKeyDown()) { // Space
+			if (mcInstance.gameSettings.keyBindJump.isKeyDown()) { // Space
 				drawText("Space", drawKeyboardPositionX + 28, drawKeyboardPositionY + 40);
 			}
 
-			if(mcInstance.gameSettings.keyBindAttack.isKeyDown() || attackedThisTick) { // Mouse1
+			if (mcInstance.gameSettings.keyBindAttack.isKeyDown() || attackedThisTick) { // Mouse1
 				drawText("LM", drawKeyboardPositionX + 2, drawKeyboardPositionY + 4);
 			}
 
-			if(mcInstance.gameSettings.keyBindUseItem.isKeyDown()) { // Mouse2
+			if (mcInstance.gameSettings.keyBindUseItem.isKeyDown()) { // Mouse2
 				drawText("RM", drawKeyboardPositionX + 20, drawKeyboardPositionY + 4);
 			}
-		
+
 			// bot controlling
 
 			// get fps
-			
+
 			curFps = Minecraft.getDebugFPS();
-						
+
 			// bot tick handler
-				
+
 			long tickTimeDiff = curTime - lastTickTime;
 
-			if (
-				grinderEnabled && curTime - (lastReceivedApiResponse - apiLastTotalProcessingTime) >= 1000 // 1000ms per api call
-				&& curTime - lastCalledApi >= 500 // absolute minimum time to avoid spamming before any responses received
+			if (grinderEnabled && curTime - (lastReceivedApiResponse - apiLastTotalProcessingTime) >= 1000 // 1000ms per
+																											// api call
+					&& curTime - lastCalledApi >= 500 // absolute minimum time to avoid spamming before any responses
+														// received
 			) {
 				lastCalledApi = curTime;
 				callBotApi();
 			}
-			
+
 			if (tickTimeDiff < 1000 / 20) { // 20 ticks per second
 				return;
 			}
-		}
-		catch(Exception e){
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
@@ -294,21 +287,25 @@ public class GrindBot
 			doBotTick();
 		}
 	}
-	
+
 	@SubscribeEvent
 	public void onChat(ClientChatReceivedEvent event) {
 		String curChatRaw = StringUtils.stripControlCodes(event.message.getUnformattedText());
-		
+
 		curChatRaw = new String(curChatRaw.getBytes(), StandardCharsets.UTF_8); // probably unnecessary
-		
+
 		// idk what the first thing is for `!curChatRaw.startsWith(":")`
-		if (!curChatRaw.startsWith(":") && (curChatRaw.startsWith("MAJOR EVENT!") || curChatRaw.startsWith("BOUNTY CLAIMED!") || curChatRaw.startsWith("NIGHT QUEST!") || curChatRaw.startsWith("QUICK MATHS!") || curChatRaw.startsWith("DONE!") || curChatRaw.startsWith("MINOR EVENT!") || curChatRaw.startsWith("MYSTIC ITEM!") || curChatRaw.startsWith("PIT LEVEL UP!") || curChatRaw.startsWith("A player has"))) {
+		if (!curChatRaw.startsWith(":") && (curChatRaw.startsWith("MAJOR EVENT!")
+				|| curChatRaw.startsWith("BOUNTY CLAIMED!") || curChatRaw.startsWith("NIGHT QUEST!")
+				|| curChatRaw.startsWith("QUICK MATHS!") || curChatRaw.startsWith("DONE!")
+				|| curChatRaw.startsWith("MINOR EVENT!") || curChatRaw.startsWith("MYSTIC ITEM!")
+				|| curChatRaw.startsWith("PIT LEVEL UP!") || curChatRaw.startsWith("A player has"))) {
 			importantChatMsg = curChatRaw;
 		}
 
 		chatMsgs.add(curChatRaw);
 	}
-	
+
 	public void doBotTick() {
 		try {
 			// go afk if fps too low (usually when world is loading)
@@ -318,17 +315,19 @@ public class GrindBot
 				apiMessage = "fps too low";
 				return;
 			}
-			
+
 			// main things
-			
+
 			long timeSinceReceivedApiResponse = System.currentTimeMillis() - lastReceivedApiResponse;
-			
+
 			if (timeSinceReceivedApiResponse > 3000) {
 				allKeysUp();
 
 				if (Math.floor((float) timeSinceReceivedApiResponse / 50) % 20 == 0) {
 					goAfk();
-					String issueStr = "too long since successful api response: " + timeSinceReceivedApiResponse + "ms. last api ping: " + apiLastPing + "ms. last api time: " + apiLastTotalProcessingTime + " ms.";
+					String issueStr = "too long since successful api response: " + timeSinceReceivedApiResponse
+							+ "ms. last api ping: " + apiLastPing + "ms. last api time: " + apiLastTotalProcessingTime
+							+ " ms.";
 					apiMessage = issueStr;
 					System.out.println(issueStr);
 				}
@@ -338,55 +337,57 @@ public class GrindBot
 
 			if (!curTargetName.equals("null")) {
 				double[] curTargetPos = getPlayerPos(curTargetName);
-				
+
 				if (curTargetPos[1] > mcInstance.thePlayer.posY + 4 && nextTargetNames.length > 0) {
-					makeLog("switching to next target " + nextTargetNames[0] + " because Y of " + curTargetPos[1] + " too high");
-					
+					makeLog("switching to next target " + nextTargetNames[0] + " because Y of " + curTargetPos[1]
+							+ " too high");
+
 					curTargetName = nextTargetNames[0];
 					nextTargetNames = Arrays.copyOfRange(nextTargetNames, 1, nextTargetNames.length);
-					
+
 					curTargetPos = getPlayerPos(curTargetName);
 				}
-				
+
 				mouseTargetX = curTargetPos[0];
 				mouseTargetY = curTargetPos[1] + 1;
 				mouseTargetZ = curTargetPos[2];
 			}
-			
+
 			if (mcInstance.currentScreen == null) {
 				if (mouseTargetX != 0 || mouseTargetY != 0 || mouseTargetZ != 0) { // dumb null check
 					mouseMove();
 				}
 				doMovementKeys();
-			}
-			else {
+			} else {
 				allKeysUp();
 			}
-			
+
 			if (mcInstance.thePlayer.posY > curSpawnLevel - 4 && !curTargetName.equals("null") && !farFromMid()) {
 
 				// in spawn but has target (bad)
 
 				curTargetName = "null";
-				
+
 				mouseTargetX = 0;
 				mouseTargetY = curSpawnLevel - 4;
 				mouseTargetZ = 0;
-				
+
 				allKeysUp();
 
 				if (!autoClickerEnabled) { // only needs to switch away from sword if an external KA is enabled
 					mcInstance.thePlayer.inventory.currentItem = 5;
 				}
 			}
-		}
-		catch(Exception e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
 	public void reloadKey() {
-		String[] possibleKeyFileNames = {"key.txt", "key.txt.txt", "key", "token.txt", "token.txt.txt", "token"}; // from best to worst...
+		String[] possibleKeyFileNames = { "key.txt", "key.txt.txt", "key", "token.txt", "token.txt.txt", "token" }; // from
+																													// best
+																													// to
+																													// worst...
 
 		boolean foundKeyFile = false;
 
@@ -410,12 +411,12 @@ public class GrindBot
 				}
 			}
 		}
-		
+
 		if (!foundKeyFile) {
 			apiMessage = "no key file found";
 		}
 	}
-	
+
 	public void callBotApi() {
 		// set key from file if unset
 		if (apiKey.equals("null")) {
@@ -426,17 +427,17 @@ public class GrindBot
 		if (apiKey.equals("null")) {
 			return;
 		}
-		
+
 		makeLog("getting api url: " + apiUrl);
-		
+
 		preApiProcessingTime = System.currentTimeMillis();
 
 		APIMainPayload payload = new APIMainPayload();
 
 		EntityPlayerSP player = mcInstance.thePlayer;
-		
+
 		// construct client info string
-		
+
 		// auth key
 
 		payload.setApiKey(apiKey);
@@ -444,35 +445,36 @@ public class GrindBot
 		// client username
 
 		payload.setPlayerName(player.getName());
-		
+
 		// client uuid
-		
+
 		payload.setUuid(player.getUniqueID().toString());
-		
+
 		// client position + viewing angles
 
 		payload.setPosition(new APIVec3(player.posX, player.posY, player.posZ));
 		payload.setYaw(player.rotationYaw);
 		payload.setPitch(player.rotationPitch);
-		
+
 		// client inventory
 		ArrayList<APIInventoryItem> inventoryItems = new ArrayList<>();
-		
-		for(int i = 0; i < player.inventoryContainer.getInventory().size(); i++){
+
+		for (int i = 0; i < player.inventoryContainer.getInventory().size(); i++) {
 			ItemStack curItem = player.inventoryContainer.getInventory().get(i);
-			
+
 			if (curItem != null) {
-				inventoryItems.add(new APIInventoryItem(curItem.getItem().getRegistryName().split(":")[1], curItem.stackSize));
+				inventoryItems.add(
+						new APIInventoryItem(curItem.getItem().getRegistryName().split(":")[1], curItem.stackSize));
 			}
 		}
 
 		payload.setInventory(inventoryItems);
-		
+
 		// players
 
 		payload.setPlayers(mcInstance.theWorld.playerEntities
-				  .stream()
-				  .filter(p -> !p.isInvisible())
+				.stream()
+				.filter(p -> !p.isInvisible())
 				.map(p -> {
 					APIVec3 pos = new APIVec3(p.posX, p.posY, p.posZ);
 					APIPlayer apiPlayer = new APIPlayer();
@@ -483,40 +485,40 @@ public class GrindBot
 					return apiPlayer;
 				})
 				.collect(Collectors.toList()));
-		
+
 		// middle block
-		
+
 		String middleBlockname = "null";
 		try {
-			middleBlockname = mcInstance.theWorld.getBlockState(new BlockPos(0, (int) player.posY - 1, 0)).getBlock().getRegistryName().split(":")[1];
-		}
-		catch(Exception e) {
+			middleBlockname = mcInstance.theWorld.getBlockState(new BlockPos(0, (int) player.posY - 1, 0)).getBlock()
+					.getRegistryName().split(":")[1];
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		
+
 		payload.setMiddleBlock(middleBlockname);
-		
+
 		// last chat message
 
 		payload.setLastMessages(chatMsgs);
 
 		chatMsgs.clear();
-		
+
 		// container items
-		
+
 		StringBuilder containerStr = new StringBuilder("null");
 
 		List<ItemStack> containerItems = mcInstance.thePlayer.openContainer.getInventory();
-		
+
 		if (containerItems.size() > 46) { // check if a container is open (definitely a better way to do that)
 			List<APIContainerItem> apiContainerItems = new ArrayList<>();
-			for(int i = 0; i < containerItems.size() - 36; i++){ // minus 36 to cut off inventory
+			for (int i = 0; i < containerItems.size() - 36; i++) { // minus 36 to cut off inventory
 				ItemStack curItem = containerItems.get(i);
-				
+
 				String curItemName = "air";
 				String curItemDisplayName = "air";
 				int curItemStackSize = 0;
-				
+
 				if (curItem != null) {
 					APIContainerItem item = new APIContainerItem();
 					item.setDisplayName(curItemDisplayName);
@@ -529,15 +531,21 @@ public class GrindBot
 		}
 
 		// dropped items
-		List<EntityItem> droppedItems = mcInstance.theWorld.getEntitiesWithinAABB(EntityItem.class, new AxisAlignedBB(new BlockPos(mcInstance.thePlayer.posX - 32, mcInstance.thePlayer.posY - 4, mcInstance.thePlayer.posZ - 32), new BlockPos(mcInstance.thePlayer.posX + 32, mcInstance.thePlayer.posY + 32, mcInstance.thePlayer.posZ + 32)));
+		List<EntityItem> droppedItems = mcInstance.theWorld.getEntitiesWithinAABB(EntityItem.class,
+				new AxisAlignedBB(
+						new BlockPos(mcInstance.thePlayer.posX - 32, mcInstance.thePlayer.posY - 4,
+								mcInstance.thePlayer.posZ - 32),
+						new BlockPos(mcInstance.thePlayer.posX + 32, mcInstance.thePlayer.posY + 32,
+								mcInstance.thePlayer.posZ + 32)));
 
 		List<APIDroppedItem> dItems = new ArrayList<>();
-		for(int i = 0; i < Math.min(128, droppedItems.size()); i++){
+		for (int i = 0; i < Math.min(128, droppedItems.size()); i++) {
 			EntityItem curItem = droppedItems.get(i);
 			String curItemName = curItem.getEntityItem().getItem().getRegistryName().split(":")[1];
 
 			APIDroppedItem dItem = new APIDroppedItem();
-			dItem.setPos(new APIVec3(curItem.getPosition().getX(), curItem.getPosition().getY(), curItem.getPosition().getZ()));
+			dItem.setPos(new APIVec3(curItem.getPosition().getX(), curItem.getPosition().getY(),
+					curItem.getPosition().getZ()));
 			dItem.setName(curItemName);
 			dItems.add(dItem);
 		}
@@ -545,14 +553,14 @@ public class GrindBot
 		payload.setDroppedItems(dItems);
 
 		// important chat msg
-		
+
 		if (!importantChatMsg.equals("")) {
 			payload.setImportantChatMsg(importantChatMsg);
 			importantChatMsg = "";
 		}
 
 		// current open gui
-		
+
 		String curOpenGui = "null";
 		if (mcInstance.currentScreen != null) {
 			payload.setCurrentOpenGui(mcInstance.currentScreen.getClass().toString());
@@ -560,24 +568,25 @@ public class GrindBot
 		}
 
 		// villager positions
-		
+
 		List<Entity> allEntities = mcInstance.theWorld.getLoadedEntityList();
-		
-		List<Entity> villagerEntities = allEntities.stream().filter(entity -> entity.getClass().equals(EntityVillager.class)).collect(Collectors.toList());
+
+		List<Entity> villagerEntities = allEntities.stream()
+				.filter(entity -> entity.getClass().equals(EntityVillager.class)).collect(Collectors.toList());
 
 		List<APIVec3> villagerPositions = new ArrayList<>();
-		for(int i = 0; i < Math.min(8, villagerEntities.size()); i++){
+		for (int i = 0; i < Math.min(8, villagerEntities.size()); i++) {
 			Entity curVillager = villagerEntities.get(i);
-			
+
 			double curVillagerPositionX = curVillager.getPosition().getX();
 			double curVillagerPositionY = curVillager.getPosition().getY();
 			double curVillagerPositionZ = curVillager.getPosition().getZ();
 
 			villagerPositions.add(new APIVec3(curVillagerPositionX, curVillagerPositionY, curVillagerPositionZ));
 		}
-		
+
 		payload.setVillagerPositions(villagerPositions);
-		
+
 		// client health
 
 		payload.setHealth(player.getHealth());
@@ -593,26 +602,26 @@ public class GrindBot
 		if (modContainer != null) {
 			payload.setVersion(modContainer.toString());
 		}
-//		// compress
-//
-//		infoStr = compressString(infoStr);
-//
-//		// add "this is compressed" tag to support API version compatibility
-//
-//		infoStr += "xyzcompressed";
-		
+		// // compress
+		//
+		// infoStr = compressString(infoStr);
+		//
+		// // add "this is compressed" tag to support API version compatibility
+		//
+		// infoStr += "xyzcompressed";
+
 		// done, set client info header
 
 		String infoStr = gson.toJson(payload);
 
 		makeLog(infoStr);
-		
+
 		makeLog("api info header length is " + infoStr.length() + " chars");
-		
+
 		// do request
-		
+
 		ticksPerApiCall = 20;
-		
+
 		long preApiGotTime = System.currentTimeMillis();
 
 		ForkJoinPool.commonPool().execute(() -> {
@@ -640,7 +649,7 @@ public class GrindBot
 				return;
 			}
 
-			apiLastPing = (int)(System.currentTimeMillis() - preApiGotTime);
+			apiLastPing = (int) (System.currentTimeMillis() - preApiGotTime);
 
 			makeLog("api ping was " + apiLastPing + "ms");
 
@@ -658,7 +667,7 @@ public class GrindBot
 			}
 		});
 	}
-	
+
 	public void ingestApiResponse(String apiText, int statusCode) {
 		// check if it's an error
 		if (statusCode >= 400) {
@@ -672,7 +681,7 @@ public class GrindBot
 
 		apiMessage = payload.getMessage();
 	}
-	
+
 	public void doMovementKeys() { // so long
 		if (Math.random() <= keyChanceForwardUp) {
 			setKeyUp(1);
@@ -680,63 +689,63 @@ public class GrindBot
 		if (Math.random() <= keyChanceForwardDown) {
 			setKeyDown(1);
 		}
-		
+
 		if (Math.random() <= keyChanceBackwardUp) {
 			setKeyUp(2);
 		}
 		if (Math.random() <= keyChanceBackwardDown) {
 			setKeyDown(2);
 		}
-		
+
 		if (Math.random() <= keyChanceSideUp) {
 			setKeyUp(3);
 		}
 		if (Math.random() <= keyChanceSideDown) {
 			setKeyDown(3);
 		}
-		
+
 		if (Math.random() <= keyChanceSideUp) {
 			setKeyUp(4);
 		}
 		if (Math.random() <= keyChanceSideDown) {
 			setKeyDown(4);
 		}
-		
+
 		if (Math.random() <= keyChanceJumpUp) {
 			setKeyUp(5);
 		}
 		if (Math.random() <= keyChanceJumpDown) {
 			setKeyDown(5);
 		}
-		
+
 		if (Math.random() <= keyChanceCrouchUp) {
 			setKeyUp(6);
 		}
 		if (Math.random() <= keyChanceCrouchDown) {
 			setKeyDown(6);
 		}
-		
+
 		if (Math.random() <= keyChanceSprintUp) {
 			setKeyUp(7);
 		}
 		if (Math.random() <= keyChanceSprintDown) {
 			setKeyDown(7);
 		}
-		
+
 		if (Math.random() <= keyChanceUseUp) {
 			setKeyUp(9);
 		}
 		if (Math.random() <= keyChanceUseDown) {
 			setKeyDown(9);
 		}
-		
+
 		if (Math.random() <= keyAttackChance) {
 			if (autoClickerEnabled) {
 				doAttack();
 			}
 		}
 	}
-	
+
 	public void doAttack() {
 		KeyBinding.onTick(mcInstance.gameSettings.keyBindAttack.getKeyCode());
 		attackedThisTick = true;
@@ -760,7 +769,7 @@ public class GrindBot
 			KeyBinding.onTick(mcInstance.gameSettings.keyBindChat.getKeyCode());
 		}
 	}
-	
+
 	public void allKeysUp() {
 		setKeyUp(1);
 		setKeyUp(2);
@@ -772,36 +781,44 @@ public class GrindBot
 		setKeyUp(8);
 		setKeyUp(9);
 	}
-	
+
 	public double[] getPlayerPos(String playerName) { // weird
 		List<EntityPlayer> playerList = mcInstance.theWorld.playerEntities;
-		List<EntityPlayer> playerToGet = playerList.stream().filter(pl -> pl.getName().equals(playerName)).collect(Collectors.toList());
-		if(playerToGet.size()>0) {
+		List<EntityPlayer> playerToGet = playerList.stream().filter(pl -> pl.getName().equals(playerName))
+				.collect(Collectors.toList());
+		if (playerToGet.size() > 0) {
 			Entity foundPlayer = playerToGet.get(0);
-			
-			return new double[] {foundPlayer.getPosition().getX(), foundPlayer.getPosition().getY(), foundPlayer.getPosition().getZ()};
-		}
-		else {
+
+			return new double[] { foundPlayer.getPosition().getX(), foundPlayer.getPosition().getY(),
+					foundPlayer.getPosition().getZ() };
+		} else {
 			System.out.println("could not find player");
-			return new double[] {0, 999, 0};
+			return new double[] { 0, 999, 0 };
 		}
 	}
 
 	public void setKeyDown(int whichKey) {
 		Minecraft mc = Minecraft.getMinecraft();
-		if(whichKey >= 1 && whichKey <= 9) {
-			KeyBinding[] keysList = {mc.gameSettings.keyBindForward, mc.gameSettings.keyBindBack, mc.gameSettings.keyBindLeft, mc.gameSettings.keyBindRight, mc.gameSettings.keyBindJump, mc.gameSettings.keyBindSneak, mc.gameSettings.keyBindSprint, mc.gameSettings.keyBindAttack, mc.gameSettings.keyBindUseItem};
-			KeyBinding.setKeyBindState(keysList[whichKey-1].getKeyCode(), true);
+		if (whichKey >= 1 && whichKey <= 9) {
+			KeyBinding[] keysList = { mc.gameSettings.keyBindForward, mc.gameSettings.keyBindBack,
+					mc.gameSettings.keyBindLeft, mc.gameSettings.keyBindRight, mc.gameSettings.keyBindJump,
+					mc.gameSettings.keyBindSneak, mc.gameSettings.keyBindSprint, mc.gameSettings.keyBindAttack,
+					mc.gameSettings.keyBindUseItem };
+			KeyBinding.setKeyBindState(keysList[whichKey - 1].getKeyCode(), true);
 		}
 	}
+
 	public void setKeyUp(int whichKey) {
 		Minecraft mc = Minecraft.getMinecraft();
-		if(whichKey >= 1 && whichKey <= 9) {
-			KeyBinding[] keysList = {mc.gameSettings.keyBindForward, mc.gameSettings.keyBindBack, mc.gameSettings.keyBindLeft, mc.gameSettings.keyBindRight, mc.gameSettings.keyBindJump, mc.gameSettings.keyBindSneak, mc.gameSettings.keyBindSprint, mc.gameSettings.keyBindAttack, mc.gameSettings.keyBindUseItem};
-			KeyBinding.setKeyBindState(keysList[whichKey-1].getKeyCode(), false);
+		if (whichKey >= 1 && whichKey <= 9) {
+			KeyBinding[] keysList = { mc.gameSettings.keyBindForward, mc.gameSettings.keyBindBack,
+					mc.gameSettings.keyBindLeft, mc.gameSettings.keyBindRight, mc.gameSettings.keyBindJump,
+					mc.gameSettings.keyBindSneak, mc.gameSettings.keyBindSprint, mc.gameSettings.keyBindAttack,
+					mc.gameSettings.keyBindUseItem };
+			KeyBinding.setKeyBindState(keysList[whichKey - 1].getKeyCode(), false);
 		}
 	}
-	
+
 	public void drawText(String text, float x, float y) {
 		mcInstance.fontRendererObj.drawStringWithShadow(text, x, y, 0xffffff);
 	}
@@ -821,8 +838,8 @@ public class GrindBot
 			// Limit time passed (so that the change can't be that large)
 			timePassed = Math.min(timePassed, 1);
 
-			mcInstance.thePlayer.rotationYaw += mouseVelY * timePassed;
-			mcInstance.thePlayer.rotationPitch += mouseVelX * timePassed;
+			mcInstance.thePlayer.rotationYaw += getAdjustedMouseChange(mouseVelY * timePassed);
+			mcInstance.thePlayer.rotationPitch += getAdjustedMouseChange(mouseVelX * timePassed);
 
 			// Limit pitch
 			float pitch = mcInstance.thePlayer.rotationPitch;
@@ -842,19 +859,18 @@ public class GrindBot
 		// old af math probably stupid
 		double targetRotY = fixRotY(360 - Math.toDegrees(Math.atan2(mouseTargetX - x, mouseTargetZ - z)));
 		double targetRotX = -Math.toDegrees(Math.atan(
-				(mouseTargetY - y - headHeight) / Math.hypot(mouseTargetX - x, mouseTargetZ - z)
-		));
-		
+				(mouseTargetY - y - headHeight) / Math.hypot(mouseTargetX - x, mouseTargetZ - z)));
+
 		// add random waviness to target
 		targetRotY += timeSinWave(310) * 2 + timeSinWave(500) * 2 + timeSinWave(260) * 2;
 		targetRotX += timeSinWave(290) * 2 + timeSinWave(490) * 2 + timeSinWave(270) * 2;
-		
+
 		targetRotY = fixRotY(targetRotY);
 		targetRotX = fixRotX(targetRotX);
-		
+
 		// calculate mouse speed
-		double timeNoise = timeSinWave(40)  * 2 +
-				timeSinWave(50)  * 2 +
+		double timeNoise = timeSinWave(40) * 2 +
+				timeSinWave(50) * 2 +
 				timeSinWave(100) * 2 +
 				timeSinWave(150) * 4 +
 				timeSinWave(200) * 6;
@@ -862,12 +878,12 @@ public class GrindBot
 		double mouseCurSpeed = mouseSpeed + timeNoise;
 
 		currentYaw = (float) fixRotY(currentYaw);
-		
+
 		double diffRotX = targetRotX - currentPitch;
 		double diffRotY = range180(targetRotY - currentYaw);
-		
+
 		double rotAng = Math.atan2(diffRotY, diffRotX) + Math.PI;
-		
+
 		double changeRotX = -Math.cos(rotAng) * mouseCurSpeed / 4;
 		double changeRotY = -Math.sin(rotAng) * mouseCurSpeed;
 
@@ -883,7 +899,7 @@ public class GrindBot
 		mouseVelX *= TPS;
 		mouseVelY *= TPS;
 	}
-	
+
 	public boolean farFromMid() {
 		return mcInstance.thePlayer.posX > 32 || mcInstance.thePlayer.posZ > 32;
 	}
@@ -903,7 +919,7 @@ public class GrindBot
 		}
 		return rot;
 	}
-	
+
 	public double fixRotY(double rotY) {
 		rotY = rotY % 360;
 		while (rotY < 0) {
@@ -911,12 +927,12 @@ public class GrindBot
 		}
 		return rotY;
 	}
-	
+
 	public double fixRotX(double rotX) {
-		if(rotX > 90) {
+		if (rotX > 90) {
 			rotX = 90;
 		}
-		if(rotX < -90) {
+		if (rotX < -90) {
 			rotX = -90;
 		}
 		return rotX;
@@ -981,5 +997,17 @@ public class GrindBot
 		byte[] decompressedData = outputStream.toByteArray();
 
 		return new String(decompressedData, StandardCharsets.UTF_8);
+	}
+
+	// https://goldenstack.net/blog/sensitivity
+	private static float getAdjustedMouseChange(double degrees) {
+		double scale = 0.5 * 0.6000000238418579 + 0.20000000298023224;
+		double factor = (scale * scale * scale) * 8.0;
+
+		double pixels = Math.round(degrees / factor);
+
+		double change = pixels * factor;
+
+		return (float) change * 0.15F;
 	}
 }
