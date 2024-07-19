@@ -13,6 +13,8 @@ import java.io.ByteArrayOutputStream;
 import boats.jojo.grindbot.structs.*;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
+
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
@@ -143,6 +145,7 @@ public class GrindBot {
 	long preApiProcessingTime = 0;
 
 	String apiMessage = "null";
+	APIResponsePayload payload;
 
 	double mouseVelX, mouseVelY;
 	long lastMouseUpdate;
@@ -598,6 +601,21 @@ public class GrindBot {
 		if (modContainer != null) {
 			payload.setVersion(modContainer.toString());
 		}
+
+		ScoreboardManager.processScoreboard(mcInstance.thePlayer.getWorldScoreboard());
+
+		if (ScoreboardManager.strippedScoreboardLines != null) {
+			String goldLine = ScoreboardManager.strippedScoreboardLines.get(6);
+			double gold = goldLine.contains("Gold") ? Double
+					.parseDouble(goldLine.split(" ")[goldLine.split(" ").length - 1].split("g")[0].replaceAll(",", ""))
+					: 0;
+			payload.setGold(gold);
+		}
+
+		if (ScoreboardManager.strippedScoreboardTitle != null) {
+			payload.setGamemode(ScoreboardManager.strippedScoreboardTitle);
+		}
+
 		// // compress
 		//
 		// infoStr = compressString(infoStr);
@@ -657,6 +675,7 @@ public class GrindBot {
 
 			try {
 				ingestApiResponse(apiResponse, statusCode);
+				lastReceivedApiResponse = System.currentTimeMillis();
 			} catch (Exception exception) {
 				exception.printStackTrace();
 				apiMessage = "errored on ingesting api response";
@@ -673,9 +692,20 @@ public class GrindBot {
 		}
 
 		// Parse the response payload
-		APIResponsePayload payload = gson.fromJson(apiText, APIResponsePayload.class);
+		System.out.println(apiText);
+		try {
+			APIResponsePayload payload = gson.fromJson(apiText, APIResponsePayload.class);
+			apiMessage = payload.getMessage();
+			this.payload = payload;
 
-		apiMessage = payload.getMessage();
+			if (payload.getCommand() != null) {
+				makeLog("Running command " + payload.getCommand());
+				mcInstance.thePlayer.sendChatMessage(payload.getCommand());
+
+			}
+		} catch (JsonSyntaxException e) {
+			apiMessage = "Error: Invalid Response Payload";
+		}
 	}
 
 	public void doMovementKeys() { // so long
