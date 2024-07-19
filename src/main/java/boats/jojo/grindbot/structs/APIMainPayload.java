@@ -3,7 +3,7 @@ package boats.jojo.grindbot.structs;
 import java.util.List;
 
 public class APIMainPayload {
-    private  String api_key;
+    private String api_key;
     private String player_name;
     private String uuid;
     private APIVec3 position;
@@ -17,10 +17,28 @@ public class APIMainPayload {
     private List<APIDroppedItem> dropped_items;
     private String important_chat_msg;
     private String current_open_gui;
-    private List<APIVec3>  villager_positions;
+    private List<APIVec3> villager_positions;
     private double health;
     private double xp_level;
     private String version;
+    private double gold;
+    private String gamemode;
+
+    public String getGamemode() {
+        return gamemode;
+    }
+
+    public void setGamemode(String gamemode) {
+        this.gamemode = gamemode;
+    }
+
+    public double getGold() {
+        return gold;
+    }
+
+    public void setGold(double gold) {
+        this.gold = gold;
+    }
 
     public String getApiKey() {
         return api_key;

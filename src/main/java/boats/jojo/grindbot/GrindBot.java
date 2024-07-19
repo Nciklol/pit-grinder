@@ -13,6 +13,8 @@ import java.io.ByteArrayOutputStream;
 import boats.jojo.grindbot.structs.*;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
+
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
@@ -143,6 +145,7 @@ public class GrindBot {
 	long preApiProcessingTime = 0;
 
 	String apiMessage = "null";
+	APIResponsePayload payload;
 
 	double mouseVelX, mouseVelY;
 	long lastMouseUpdate;
@@ -334,6 +337,8 @@ public class GrindBot {
 
 				return;
 			}
+
+			makeLog("Running bot tick!as");
 
 			if (!curTargetName.equals("null")) {
 				double[] curTargetPos = getPlayerPos(curTargetName);
@@ -598,6 +603,32 @@ public class GrindBot {
 		if (modContainer != null) {
 			payload.setVersion(modContainer.toString());
 		}
+
+		ScoreboardManager.processScoreboard(mcInstance.thePlayer.getWorldScoreboard());
+
+		System.out.println(ScoreboardManager.strippedScoreboardTitle);
+		System.out.println(ScoreboardManager.strippedScoreboardLines);
+		// String lobbyCodeString =
+		// ScoreboardManager.strippedScoreboardLines.get(0).split(" ")[2];
+		try {
+			String goldLine = ScoreboardManager.strippedScoreboardLines.get(6);
+			double gold = goldLine.contains("Gold") ? Double
+					.parseDouble(goldLine.split(" ")[goldLine.split(" ").length - 1].split("g")[0].replaceAll(",", ""))
+					: 0;
+
+			System.out.println(gold);
+
+			if (gold > -1) {
+				payload.setGold(gold);
+			}
+			lastReceivedApiResponse = System.currentTimeMillis();
+		} catch (ArrayIndexOutOfBoundsException e) {
+
+		}
+
+		// Send title and gold
+		payload.setGamemode(ScoreboardManager.strippedScoreboardTitle);
+
 		// // compress
 		//
 		// infoStr = compressString(infoStr);
@@ -673,9 +704,21 @@ public class GrindBot {
 		}
 
 		// Parse the response payload
-		APIResponsePayload payload = gson.fromJson(apiText, APIResponsePayload.class);
+		System.out.println(apiText);
+		try {
+			APIResponsePayload payload = gson.fromJson(apiText, APIResponsePayload.class);
+			apiMessage = payload.getMessage();
+			this.payload = payload;
 
-		apiMessage = payload.getMessage();
+			if (payload.getCommand() != null) {
+				makeLog("Got here x2!");
+				makeLog(payload.getCommand());
+				mcInstance.thePlayer.sendChatMessage(payload.getCommand());
+
+			}
+		} catch (JsonSyntaxException e) {
+			apiMessage = "Error: Invalid Response Payload";
+		}
 	}
 
 	public void doMovementKeys() { // so long
